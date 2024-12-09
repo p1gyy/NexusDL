@@ -45,7 +45,7 @@ class ProgressBarGUI:
         self.totalMods.grid(row=(threadCount * 2) + 2, column=0, padx=5, pady=(5, 20), sticky='w')
 
     def mainloop(self, threads):
-        mainloopThread = threading.Thread(target=self.mainLoopThreaded,  args=(threads))
+        mainloopThread = threading.Thread(target=self.mainLoopThreaded,  args=[threads])
         mainloopThread.start()
         self.root.mainloop()
     
