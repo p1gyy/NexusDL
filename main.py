@@ -77,36 +77,37 @@ def downloadFile(url, fileid, filename, threadNum):
     cookies = {"nexusmods_session": nexusSessions[threadNum]}
     headers = {'User-Agent': f'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36{threadNum * 3784}'}
     sleep(2)
-    response = requests.get(url, stream=True, cookies=cookies, headers=headers)
-    if response.status_code == 200:
-        #filename = url.split('/')[-1].split('?')[0] # extract filename from url
+    while True:
+        response = requests.get(url, stream=True, cookies=cookies, headers=headers)
+        if response.status_code == 200:
+            #filename = url.split('/')[-1].split('?')[0] # extract filename from url
 
-        filesize = int(response.headers.get('Content-Length', 0))
-        filepath = os.path.join(tempDir, filename)
+            filesize = int(response.headers.get('Content-Length', 0))
+            filepath = os.path.join(tempDir, filename)
 
-        print("Downloading File: " + filename)
+            print("Downloading File: " + filename)
 
-        progress_bar = gui.threadProgress[actualThreadNum]
-        progress_bar["maximum"] = filesize
+            progress_bar = gui.threadProgress[actualThreadNum]
+            progress_bar["maximum"] = filesize
 
-        with open(filepath, "wb") as file:
-            downloaded_size = 0
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    file.write(chunk)
+            with open(filepath, "wb") as file:
+                downloaded_size = 0
+                for chunk in response.iter_content(chunk_size=32768):
+                    if chunk:
+                        file.write(chunk)
 
-                    downloaded_size += len(chunk)
+                        downloaded_size += len(chunk)
 
-                    progress_bar["value"] = downloaded_size
-                    updateThreadStatus(actualThreadNum, f"Downloading: {filename} - {(downloaded_size / filesize) * 100:.2f}%")
-                    gui.root.update_idletasks()
+                        progress_bar["value"] = downloaded_size
+                        updateThreadStatus(actualThreadNum, f"Downloading: {filename} - {(downloaded_size / filesize) * 100:.2f}%")
 
-        os.replace(filepath, os.path.join(downloadDir, filename))
-
-    else:
-        print(f"{response.status_code}: Unable to download file: {response.text}")
-        print(url)
-        exit()
+            os.replace(filepath, os.path.join(downloadDir, filename))
+            break
+        else:
+            print(f"{response.status_code}: Unable to download file: {response.text}")
+            print(url)
+            exit()
+            break
 
 with open(modlistFile) as f:
     modlist = json.loads(f.read())['Archives']
@@ -167,8 +168,29 @@ def downloadMods(modlist):
             urlcache = json.loads(f.read())
 
     totalmods = len(modlist)
+    newModlist = []
+
+    for i in range(totalmods):
+        mod = modlist[i]
+        state = mod['State']
+        
+        if not 'NexusDownloader' in state['$type']:
+            continue
+
+        cache = urlcache.get(str(state['ModID']))
+
+        if cache:
+            if cache['downloaded'] == True:
+                print(f"Skipping mod {state['Name']}")
+                continue
+
+        newModlist.append(mod)
+
+    totalmods = len(newModlist)
     modsPerThread = totalmods // maxThreads
     remainder = totalmods % maxThreads
+
+    gui.totalmodcount = totalmods
 
     # Calculate how many mods each thread will process
     threadMods = [modsPerThread + (1 if i < remainder else 0) for i in range(maxThreads)]
@@ -182,7 +204,7 @@ def downloadMods(modlist):
         end_index = start_index + threadMods[i]
 
         threadNum = i
-        thread = threading.Thread(target=downloadModThread, args=(modlist, urlcache, start_index, end_index, totalmods, threadNum))
+        thread = threading.Thread(target=downloadModThread, args=(newModlist, urlcache, start_index, end_index, totalmods, threadNum))
 
         threads.append(thread)
         thread.start()

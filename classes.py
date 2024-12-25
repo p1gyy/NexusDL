@@ -51,11 +51,12 @@ class ProgressBarGUI:
     
     def mainLoopThreaded(self, threads):
         self.threads = threads
-        if any(thread.is_alive() for thread in self.threads):
-            # main loop
-            sleep(1)
-        else:
-            self.root.destroy()
+
+        #if any(thread.is_alive() for thread in self.threads):
+        #    self.root.update_idletasks()
+        #else:
+        #    self.root.destroy()
+        #sleep(0.01)
 
     def disable_event(self):
         pass
